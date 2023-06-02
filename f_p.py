@@ -18,7 +18,9 @@
 import torch
 import torch.nn as nn
 from torch import Tensor
-import matplotlib as plt
+import matplotlib.pyplot as plt
+import numpy as np
+import time
 
 
 # from torch_geometric.nn import GCNConv
@@ -34,7 +36,7 @@ class Model(nn.Module):
         Learns how a heat radiates between rooms, given each room's temperature.
     """
 
-    def __init__(self, num_rooms, INNdim_list) -> None:
+    def __init__(self, num_rooms, INNdim_list, loss_func = nn.MSELoss()) -> None:
         """Init
 
         Args:
@@ -46,14 +48,14 @@ class Model(nn.Module):
         """
         super(Model, self).__init__()
 
-        self.GNN = GNNModel(num_rooms)
+        self.GNN = GNNModel(num_rooms, loss_func)
 
-        self.INN = INNModel(INNdim_list)
+        self.INN = INNModel(INNdim_list, loss_func)
 
-        self.weight_INN = nn.Paramter(1)
-        self.weight_GNN = nn.Paramter(1)
+        self.weight_INN = nn.Parameter(torch.ones(1))#.cuda()
+        self.weight_GNN = nn.Parameter(torch.ones(1))#.cuda()
 
-    def train(self, dataGNN, dataINN, y, epochs, stop_cond, visible = False):
+    def train(self, dataGNN, dataINN, y, epochs, epsilon, visible = False):
         """
         Loss Function: Actual temp - Predicted Temp
         Predicted Temp = af + bg
@@ -63,50 +65,85 @@ class Model(nn.Module):
         """
 
         # data prep
-        loss_record = []
-        t = 0
-        while True:
+        loss_record_total = []
+        loss_record_gnn = []
+        loss_record_inn = []
+        lossGNN = 0
+        lossINN = 0
 
-            lossGNN = self.GNN.train_gnn(dataGNN, dataINN, y, self.INN, self.weight_GNN, self.weight_INN)
-            lossINN = self.INN.train_inn(dataGNN, dataINN, y, self.GNN, self.weight_GNN, self.weight_INN)
-            loss_total = lossGNN + lossINN
-            loss_record.append(loss_total)
-            t += 1
-            if visible:
-                self.print_loss(loss_total, t)
-            if loss_total/loss_record[-2] <= stop_cond or t > epochs:
-                break
-        plt.plot(loss_record)
+        t = 0
+        gnn_amount = 0
+        inn_amount = 0
+        choice = 2
+
+        gnn_improv = 1
+        inn_improv = 1
+
+        plt.figure(figsize=(12, 6))
+        plt.ion()
         plt.show()
+        while True:
+            plt.clf()
+
+            start = time.time()
+            if choice != 1:
+                lossGNN = self.GNN.train_gnn(dataGNN, dataINN, self.INN, self.weight_GNN, self.weight_INN)
+                gnn_amount += 1
+                if t >= 1:
+                    gnn_improv = 1 - lossGNN / loss_record_gnn[-1]
+            if choice != 0:
+                lossINN = self.INN.train_inn(dataGNN, dataINN, y, self.GNN, self.weight_GNN, self.weight_INN)
+                inn_amount += 1
+                if t >= 1:
+                    inn_improv = 1 - lossINN / loss_record_inn[-1]
+            loss_total = lossGNN + lossINN
+            loss_record_total.append(loss_total)
+            loss_record_gnn.append(lossGNN)
+            loss_record_inn.append(lossINN)
+            t += 1
+            if t >= 2:
+                print(gnn_improv, inn_improv)
+                choice = 0 if gnn_improv > inn_improv else 1
+
+            if visible:
+                self.print_loss(loss_total, t, start)
+
+            if inn_improv + gnn_improv < epsilon or (t > epochs and t != 0):
+                break
+
+            plt.plot(range(len(loss_record_gnn)), loss_record_gnn, label= 'GNN Loss: {}'.format(gnn_amount))
+            plt.plot(range(len(loss_record_inn)), loss_record_inn, label= 'INN Loss: {}'.format(inn_amount))
+            plt.plot(range(len(loss_record_total)), loss_record_total, label= 'Total Loss: {}'.format(t+2))
+            plt.yscale('log')
+            plt.legend()
+
+            plt.draw()
+            plt.pause(.001)
+            plt.savefig('images\\loss_graph.png')
+        torch.save(model.state_dict(), 'runtime data\\model_save.pt')
+        np.savez('runtime data\\loss records.npz', loss_record_gnn, loss_record_inn, loss_record_total)
+        print('Model saved')
 
     def predict(self, temp_start, features):
-        new_temp = temp_start
-        temp_history = [new_temp]
         dims = features.shape
-        full_features = torch.cat(torch.zeros(dims[0]),features)
+        gnn_temp = self.GNN.predict(temp_start).detach()
+        inn_temp = torch.zeros(dims[0])
+        for room in range(dims[0]):
+            inn_temp[room] = self.INN.predict(features[room]).detach()
+        new_temp = temp_start + self.weight_GNN * (temp_start - gnn_temp) + self.weight_INN * (temp_start - inn_temp)
+        return new_temp
 
-        for t in range(dims[0]):
-            # add temp to first feature slot
-            full_features[t][0] = new_temp
-            gnn_temp = self.GNN.predict(new_temp)
-            inn_temp = torch.zeros(dims[1])
-            for room in range(dims[1]):
-                inn_temp[room] = self.INN.predict(features[room]).detach()
-            new_temp += self.weight_GNN * gnn_temp + self.weight_INN * inn_temp
-            temp_history.append[new_temp]
-        return temp_history
-
-    def print_loss(self, loss, t):
-        print('-' * 40)
-        print('Time: {}, MSE Loss: {}'.format(t, loss))
-        print('-' * 40)
+    def print_loss(self, loss, t, start):
+        print('-' * 65)
+        print('Epoch: {}, Time: {}, MSE Loss: {}'.format(t, time.time()-start, loss))
+        print('-' * 65)
 
 class GNNModel(torch.nn.Module):
     """GNN_Node
         This represents a room
     """
 
-    def __init__(self, num_rooms):
+    def __init__(self, num_rooms, loss_func):
         """Node initialization
 
         Args:
@@ -114,13 +151,15 @@ class GNNModel(torch.nn.Module):
         """
         super(GNNModel, self).__init__()
 
-        self.adjacency_matrix = nn.Parameter(torch.ones(num_rooms, num_rooms) - torch.eye(num_rooms))
+        self.adjacency_matrix = nn.Parameter(torch.ones(num_rooms, num_rooms) - torch.eye(num_rooms))#.cuda()
         # need vector for individual rooms
-        self.self_temp_w = nn.Parameter(1)
-        self.other_temp_w = nn.Parameter(1)
-        self.temp = [0] * num_rooms
 
-    def train_gnn(self, dataGNN, dataINN, y, INN, weight_gnn, weight_inn):
+        self.self_temp_w = nn.Parameter(torch.ones(1))
+        self.other_temp_w = nn.Parameter(torch.ones(1))
+        self.temp = torch.zeros(num_rooms)
+        self.loss_func = loss_func
+
+    def train_gnn(self, dataGNN, dataINN, INN, weight_gnn, weight_inn):
         '''
         Does one epoch of training for our GNN across the entire dataset
 
@@ -132,24 +171,35 @@ class GNNModel(torch.nn.Module):
         :param weight_inn: The weight for our INN
         :return: The total loss over the dataset for this epoch
         '''
-        loss_func = nn.MSELoss()
+
         loss_sum = 0
         for datum_idx in range(dataGNN.shape[0] - 1):
+            optimizer.zero_grad()
             current_temp = dataGNN[datum_idx]
             self.set_temps(current_temp)
             gnn_temp = self.predict(dataGNN[datum_idx])
-            inn_temp = torch.zeros(dataGNN.shape[1])
+            inn_temp = torch.zeros(dataGNN.shape[1]).to(gnn_temp.device)
             for room in range(dataGNN.shape[1]):
-                inn_temp[room] = INN.predict(dataINN[datum_idx][room]).detach()
+                inn_temp[room] = INN.predict(dataINN[room][datum_idx]).detach()
             # need weights in next line
             pred_y = self.temp + weight_gnn * (gnn_temp - self.temp) + weight_inn * (inn_temp - self.temp)
-            loss = loss_func(pred_y, y)
-            loss_sum += loss
-            loss.backwards()
-        return loss_sum / (len(dataGNN) - 1)
+            y = dataGNN[datum_idx+1]
+            loss = self.loss_func(pred_y, y)
+            loss_sum += float(loss)
+            loss.backward()
+            optimizer.step()
+            if datum_idx == 0:
+                print('GNN Datum Idx:')
+            if datum_idx % 100 == 0:
+                 print(datum_idx, end= ' ')
+            if datum_idx > 10:
+                break
+
+        print('')
+        return loss_sum #/ (len(dataGNN) - 1)
 
     def set_temps(self, temps):
-        self.temp = temps
+        self.temp = temps.to(temps.device)
 
     def predict(self, data):
         aggregate_temp = torch.matmul(self.adjacency_matrix, data)
@@ -165,7 +215,7 @@ class INNModel(torch.nn.Module):
     Output: Model
     """
 
-    def __init__(self, dim_list) -> None:
+    def __init__(self, dim_list, loss_func) -> None:
         """
         Initialize the Room Network Model
         We'll change these inits later, specifics on the layers later.
@@ -175,10 +225,9 @@ class INNModel(torch.nn.Module):
         """
         super(INNModel, self).__init__()
         self.linear_list = nn.ModuleList([nn.Linear(dim_list[i], dim_list[i + 1]) for i in range(len(dim_list) - 1)])
-        self.sigmoid = nn.Sigmoid()
+        # self.sigmoid = nn.Sigmoid()
+        self.loss_func = loss_func
 
-    def forward(self, data, layer):
-        return self.sigmoid(layer(data))
 
     def train_inn(self, dataGNN, dataINN, y, GNN, weight_gnn, weight_inn):
         '''
@@ -192,18 +241,31 @@ class INNModel(torch.nn.Module):
         :param weight_inn: The weight for our INN
         :return: The total loss over the dataset for this epoch
         '''
-        loss_func = nn.MSELoss()
         loss_sum = 0
-        for datum_idx in range(len(dataINN)):
-            time_idx = datum_idx % 2000  # filler number
+
+        for time_idx in range(dataINN.shape[1]):
             gnn_temp = GNN.predict(dataGNN[time_idx]).detach()
-            inn_temp = self.predict(dataINN[datum_idx])
-            cur_temp = dataINN[datum_idx][0]
-            pred_y = cur_temp + weight_gnn * (gnn_temp - cur_temp) + weight_inn * (inn_temp - cur_temp)
-            loss = loss_func(pred_y, y)
-            loss_sum += loss
-            loss.backwards()
-        return loss_sum / len(dataINN)
+            for room_idx in range(dataINN.shape[0]):
+                optimizer.zero_grad()
+                inn_temp = self.predict(dataINN[room_idx][time_idx])
+                cur_temp = dataINN[room_idx][time_idx][1]
+                pred_y = cur_temp + weight_gnn * (gnn_temp[room_idx] - cur_temp) + weight_inn * (inn_temp - cur_temp)
+                loss = loss_func(pred_y, y[room_idx][time_idx+1].unsqueeze(0))
+                loss_sum += float(loss)
+                loss.backward()
+                optimizer.step()
+
+
+            if time_idx == 0:
+                print('INN Datum Idx:')
+            if time_idx % 100 == 0:
+                 print(time_idx, end= ' ')
+            if time_idx > 10:
+                break
+
+
+        print('')
+        return loss_sum #/ len(dataINN)
 
 
     def predict(self, features):
@@ -213,21 +275,40 @@ class INNModel(torch.nn.Module):
         # room_temp = self.model.fit(features)
         # return room_temp
         values = features
-        for layer_num in range(len(self.linear_list) - 1):
-            values = self.forward(values, self.linear_list[layer_num])
+        for layer_num in range(len(self.linear_list)):
+            values = self.linear_list[layer_num](values)
         assert len(values) == 1, 'not proper INN output'
         return values
 
 
 
 
-epochs = 100
-stop_cond = 1e-3
-dataGNN = 5
-dataINN = 5
-y = 5
-num_rooms = dataGNN.shape[1]
-network_layer_dims = [dataINN.shape[1], 10, 10, 1]
-model = Model(num_rooms, network_layer_dims)
-model.train(dataGNN, dataINN,y,epochs,stop_cond, visible=True)
+# Data
+dataINN = torch.from_numpy(np.load('preprocessing_output\\merged_features_rooms.npy').astype(np.float32)[:,0:1129,:])
+yINN = torch.from_numpy(np.load('preprocessing_output\\merged_features_rooms.npy').astype(np.float32)[:,0:1130,1])
+dataGNN = torch.from_numpy(np.load('preprocessing_output\\merged_temps_time.npy').astype(np.float32)[0:1130])
+
+# Device selection
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    dataINN = dataINN.cuda()
+    yINN = yINN.cuda()
+    dataGNN = dataGNN.cuda()
+else:
+    device = torch.device("cpu")
+
+
+# Hyperparameters
+epochs = 1000
+stop_epsilon = .001
+num_rooms = dataINN.shape[0]
+network_layer_dims = [dataINN.shape[2], 10, 10, 1]
+loss_func = nn.MSELoss()
+learning_rate = .01
+
+if __name__ == '__main__':
+    model = Model(num_rooms, network_layer_dims, loss_func)
+    model = model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    model.train(dataGNN, dataINN, yINN, epochs,stop_epsilon, visible=True)
 
