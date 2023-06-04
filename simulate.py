@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import f_p
+import f_pOld
+import f_pNew
 
 
 
@@ -25,10 +26,15 @@ def check_final_temp(temp, data):
     return np.linalg.norm(temp-final_temp_true)
 
 
-model = f_p.Model(81, [19,10,10,1])
-model.load_state_dict(torch.load('runtime data\\model_save.pt'))
+rooms = np.load(f'preprocessing_output\\merged_rooms_list.npy')
+model = f_pNew.Model(80, [19, 10, 10, 1], rooms)
+model.load_state_dict(torch.load('runtime data\\model2_save.pt'))
 model = model.to(torch.device('cpu'))
-data = torch.from_numpy(np.load('preprocessing_output\\merged_features_rooms.npy').astype(np.float32)[:,0:1129,:])
-final_temp = simulate_all(model, data)
-loss = check_final_temp(final_temp, data)
+data = torch.from_numpy(np.load('preprocessing_output\\merged_features_rooms_120T.npy').astype(np.float32))
+final_temp = simulate_all(model, torch.clone(data))
+loss = check_final_temp(final_temp, torch.clone(data))
+
+final_adj = model.GNN.adjacency_matrix.detach().numpy()
+data_end = data.numpy()[:,-1,1]
+final_temp = final_temp.numpy()
 print(loss)

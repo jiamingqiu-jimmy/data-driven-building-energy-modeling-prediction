@@ -132,17 +132,17 @@ if __name__ == '__main__':
     im = Image.open('D:\\Documents\\School\\ECE 228\\Project\\images\\imageDataRoomsOnly.png')
 
     roomNumbers = ['403', '405', '409', '413', '415', '402', '417', '484', '470', '420', '469', '423', '450', '462', '463', '461', '448', '445', '432', '428', '429', '436',
-                   '304', '308', '314', '208', '213', '216', '290', '302', '375', '281', '317', '387', '217', '386', '288', '280', '380', '371', '271', '368', '268', '264',
-                   '221', '223', '323', '350', '340', '249', '252', '254', '261', '362', '363', '361', '227', '348', '345', '248', '247', '245', '240', '228', '104', '105',
+                   '304', '308', '314', '208', '213', '216', '290', '302', '375', '281', '317', '387', '217', '386', '288', '280', '380', '371', '368', '268', '264',
+                   '221', '223', '323', '350', '340', '249', '252', '254', '261', '362', '363', '361', '227', '348', '345', '248', '247', '245', '240', '104', '105',
                    '229', '328', '329', '107', '330', '336', '108', '110', '114', '122', '121', '120']
 
-    # roomLocations = findRooms(im, roomNumbers)
-    # with open('images\\roomLocations.pkl', 'wb') as f:
-    #     pickle.dump(roomLocations, f)
+    roomLocations = findRooms(im, roomNumbers)
+    with open('images\\roomLocations.pkl', 'wb') as f:
+        pickle.dump(roomLocations, f)
     fileName = open('images\\roomLocations.pkl', 'rb')
     roomLocations = pickle.load(fileName)
 
-    #help 353,437, 453, 490
+    #help 271, 353,437, 453, 490
 
     # imNumpy = np.array(im.convert("RGB"))
     # imNumpy[1012, 387] = [255,0,0]
@@ -154,13 +154,13 @@ if __name__ == '__main__':
     # cv2.imshow("output", imNumpy)
     # cv2.waitKey(0)
 
-    # temp = roomLocations['268']
-    # roomLocations.pop('268')
-    # roomLocations['264'] = (temp[0], temp[1], roomLocations['264'][2], roomLocations['264'][3])
-    # roomLocations['268'] = temp
-    #
-    # with open('images\\roomLocations.pkl', 'wb') as f:
-    #     pickle.dump(roomLocations, f)
+    temp = roomLocations['268']
+    roomLocations.pop('268')
+    roomLocations['264'] = (temp[0], temp[1], roomLocations['264'][2], roomLocations['264'][3])
+    roomLocations['268'] = temp
+
+    with open('images\\roomLocations.pkl', 'wb') as f:
+        pickle.dump(roomLocations, f)
     fileName = open('images\\roomLocations.pkl', 'rb')
     roomLocations = pickle.load(fileName)
 
