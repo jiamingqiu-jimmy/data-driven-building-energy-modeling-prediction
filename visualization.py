@@ -6,7 +6,7 @@ import os
 class tempToColor():
 
     def __init__(self, max_temp, min_temp):
-        self.max_temp = max_temp-5
+        self.max_temp = max_temp-7
         self.min_temp = min_temp
         self.mid_temp = (max_temp + min_temp)/2
 
@@ -45,9 +45,19 @@ def visualizeData(data, fileout, visual_room_order):
         if time % 20 == 0:
             print('time compeleted: {}'.format(time))
 
+    # def white_to_transparency(img):
+    #     x = np.asarray(img.convert('RGBA')).copy()
+    #
+    #     x[:, :, 3] = (255 * (x[:, :, :3] != 255).any(axis=2)).astype(np.uint8)
+    #
+    #     return Image.fromarray(x)
+    #
+    # completeIm = white_to_transparency(Image.open('D:\\Documents\\School\\ECE 228\\Project\\images\\imageComplete.png'))
+    #
+    # for image_idx in range(len(frames)):
+    #     frames[image_idx].paste(completeIm, (0,0), completeIm)
+    frames[1].save(fileout, save_all=True, append_images=frames[2:], optimize=True, duration=5, loop=0)
 
-
-    frames[1].save(fileout, save_all=True, append_images=frames[2:], optimize=True, duration=8, loop=0)
 
 
 def reorder_data(data, data_room_order, visual_room_order):
@@ -58,7 +68,7 @@ def reorder_data(data, data_room_order, visual_room_order):
         dataNew[:,room_idx] = data[:,data_idx]
     return dataNew
 
-data = np.load('preprocessing_output\\merged_temps_time_30T.npy')[0:500,:]
+data = np.load('preprocessing_output\\30T\\temps_training_30T.npy')[0:336,:]
 # data[783][37] = 73.61798
 data_room_order = np.load('preprocessing_output\\merged_rooms_list.npy')
 

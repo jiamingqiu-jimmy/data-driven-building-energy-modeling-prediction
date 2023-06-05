@@ -21,6 +21,8 @@ from torch import Tensor
 import matplotlib.pyplot as plt
 import numpy as np
 import time
+import os
+import pickle
 
 
 # from torch_geometric.nn import GCNConv
@@ -55,7 +57,7 @@ class Model(nn.Module):
         self.weight_INN = nn.Parameter(torch.ones(1)*.5)
         self.weight_GNN = nn.Parameter(torch.ones(1)*.5)
 
-    def train(self, dataGNN, dataINN, y, epochs, epsilon, max_runtime, visible = False):
+    def train(self, dataGNN, dataINN, y, epochs, epsilon, max_runtime, outfile, visible = False):
         """
         Loss Function: Actual temp - Predicted Temp
         Predicted Temp = af + bg
@@ -76,32 +78,31 @@ class Model(nn.Module):
 
         dims = dataINN.shape
 
-        plt.figure(figsize=(12, 6))
-        plt.ion()
-        plt.show()
+        # plt.figure(figsize=(12, 6))
+        # plt.ion()
+        # plt.show()
         while True:
-            plt.clf()
+            # plt.clf()
 
             epoch_start = time.time()
 
             loss_sum = 0
-            for datum_idx in range(dims[1]-1):
+            for datum_idx in range(dims[0]-1):
                 optimizer.zero_grad()
                 cur_temp = torch.clone(dataGNN[datum_idx,:])
-                features = torch.clone(dataINN[:,datum_idx,:])
+                features = torch.clone(dataINN[datum_idx,:,:])
                 new_temp = self.predict(cur_temp, features)
-                true_temp = torch.clone(dataINN[:,datum_idx+1,1])
+                true_temp = torch.clone(dataINN[datum_idx+1,:,1])
                 loss = loss_func(new_temp, true_temp)
                 loss_sum += loss.cpu().detach()
-                if datum_idx == 0:
+                if datum_idx == 0 and visible:
                     print('Epoch Datum Idx:')
-                if datum_idx % 100 == 0:
+                if datum_idx % 100 == 0 and visible:
                     print(datum_idx, end=' ')
-                # if datum_idx >= 10:
-                #     break
                 loss.backward()
                 optimizer.step()
-            print('')
+                if datum_idx > 5:
+                    break
 
             if t >= 1:
                 loss_improv = loss_sum/loss_record[-1]
@@ -109,31 +110,34 @@ class Model(nn.Module):
             t += 1
 
             if visible:
+                print('')
                 self.print_loss(loss_sum, t, epoch_start, loss_improv)
 
 
-            plt.plot(range(len(loss_record)),  loss_record, label= 'Total Loss: {}'.format(t))
-            plt.yscale('log')
-            plt.legend()
+            # plt.plot(range(len(loss_record)),  loss_record, label= 'Total Loss: {}'.format(t))
+            # plt.yscale('log')
+            # plt.legend()
+            #
+            # plt.draw()
+            # plt.pause(.001)
+            # plt.savefig('images\\loss_graph2.png')
 
-            plt.draw()
-            plt.pause(.001)
-            plt.savefig('images\\loss_graph2.png')
-
-            if 1- loss_improv < epsilon or (t > epochs and epochs != 0):
+            if 1- loss_improv < epsilon:
                 if stop_next:
                     break
                 stop_next = True
-            elif time.time() - total_start >= max_runtime:
+            elif time.time() - total_start >= max_runtime or (t >= epochs and epochs !=0):
                 break
             else:
                 stop_next = False
 
 
-        torch.save(model.state_dict(), 'runtime data\\model2_save.pt')
-        np.savez('runtime data\\loss records 2.npz', loss_record)
-        print('Model saved')
+        torch.save(model.state_dict(), outfile)
+        # np.savez(f'runtime data\\loss records.npz', loss_record)
+        # print('Model saved')
+        print('Final Loss: {}'.format(loss_record[-1]))
         print('Total time taken: {}'.format(time.time() - total_start))
+        return loss_record
 
     def predict(self, temp_start, features):
         dims = features.shape
@@ -259,16 +263,20 @@ class INNModel(torch.nn.Module):
         return values
 
 
+# Data
+def get_data(interval):
+    dataINN = torch.from_numpy(np.load(f'preprocessing_output\\{str(interval)}T\\features_rooms_training_{str(interval)}T.npy').astype(np.float32))
+    yINN = torch.from_numpy(np.load(f'preprocessing_output\\{str(interval)}T\\features_rooms_training_{str(interval)}T.npy').astype(np.float32)[:,:,1])
+    dataGNN = torch.from_numpy(np.load(f'preprocessing_output\\{str(interval)}T\\temps_training_{str(interval)}T.npy').astype(np.float32))
+    return dataINN, yINN, dataGNN
 
-time_interval = 120# Data
-
-dataINN = torch.from_numpy(np.load(f'preprocessing_output\\merged_features_rooms_{str(time_interval)}T.npy').astype(np.float32))
-yINN = torch.from_numpy(np.load(f'preprocessing_output\\merged_features_rooms_{str(time_interval)}T.npy').astype(np.float32)[:,:,1])
-dataGNN = torch.from_numpy(np.load(f'preprocessing_output\\merged_temps_time_{str(time_interval)}T.npy').astype(np.float32))
 rooms = np.load(f'preprocessing_output\\merged_rooms_list.npy')
 
+time_interval = 120
+dataINN, yINN, dataGNN =get_data(time_interval)
+
 # Device selection
-if torch.cuda.is_available():
+if torch.cuda.is_available() and 1 == 0:
     device = torch.device("cuda")
     dataINN = dataINN.cuda()
     yINN = yINN.cuda()
@@ -276,20 +284,63 @@ if torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 
+print(device, end='\n\n')
 
 # Hyperparameters
 epochs = 0
-stop_epsilon = .001
-max_runtime = 36000
-num_rooms = dataINN.shape[0]
-network_layer_dims = [dataINN.shape[2], 10, 10, 1]
-loss_func = nn.L1Loss()
+stop_epsilon = 0.0001
+max_runtime = 7200
+num_rooms = dataINN.shape[1]
+network_layer_dims = [dataINN.shape[2], 20, 20, 1]
+loss_func = nn.MSELoss()
 learning_rate = .001
 
+outfile = f'runtime data\\model_save.pt'
 
 if __name__ == '__main__':
-    model = Model(num_rooms, network_layer_dims, rooms, loss_func)
-    model = model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    model.train(dataGNN, dataINN, yINN, epochs,stop_epsilon, max_runtime, visible=True)
+    print(device)
+    test_all_hyperparameters = False
+    test_all_intervals = True
+
+    if test_all_hyperparameters:
+        all_loss = np.zeros((4,2,2))
+        all_loss_records = []
+        for idx_lr, learning_rate in enumerate([.1, .01, .001, .0001]):
+            for idx_h1, hidden_layer_1 in enumerate([10,20]):
+                for idx_h2, hidden_layer_2 in enumerate([10,20]):
+                    network_layer_dims[1] = hidden_layer_1
+                    network_layer_dims[2] = hidden_layer_2
+                    print('Learning rate: {}, Hidden layers: {} {}'.format(learning_rate, hidden_layer_1, hidden_layer_2))
+                    model = Model(num_rooms, network_layer_dims, rooms, loss_func)
+                    model = model.to(device)
+                    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+                    loss_record = model.train(dataGNN, dataINN, yINN, epochs,stop_epsilon, max_runtime, outfile, visible=True)
+                    all_loss[idx_lr, idx_h1, idx_h2] = loss_record[-1]
+                    all_loss_records.append(loss_record)
+
+                print('\n')
+
+        np.save('runtime data\\all_hyperparameters_loss_final', all_loss)
+        np.savez('runtime data\\all_hyperparameters_loss_records', *all_loss_records)
+
+    elif test_all_intervals:
+        all_loss_records = []
+        time_intervals = [30,60,120]
+        for interval in time_intervals:
+            dataINN, yINN, dataGNN = get_data(interval)
+            print('Data interval: {}'.format(interval))
+            model = Model(num_rooms, network_layer_dims, rooms, loss_func)
+            model = model.to(device)
+            optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+            loss_record = model.train(dataGNN, dataINN, yINN, epochs, stop_epsilon, max_runtime, outfile, visible=True)
+            all_loss_records.append(loss_record)
+            print('\n')
+        np.savez('runtime data\\all_intervals_loss_records', *all_loss_records)
+
+    else:
+        model = Model(num_rooms, network_layer_dims, rooms, loss_func)
+        model = model.to(device)
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        loss = model.train(dataGNN, dataINN, yINN, epochs, stop_epsilon, max_runtime, outfile, visible=True)
+        np.save('runtime data\\loss.npz', loss)
 
