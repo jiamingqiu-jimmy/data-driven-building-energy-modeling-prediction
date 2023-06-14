@@ -278,7 +278,6 @@ class GNNModel(torch.nn.Module):
         final_temp = self.self_temp_w * data + self.other_temp_w * aggregate_temp
         return final_temp
 
-
 class INNModel(torch.nn.Module):
     """
     Room Network model:
@@ -333,7 +332,7 @@ if torch.cuda.is_available() and 1 == 0:
 else:
     device = torch.device("cpu")
 
-print(device, end='\n\n')
+
 
 # Hyperparameters
 epochs = 0
@@ -347,7 +346,7 @@ learning_rate = .001
 outfile = f'runtime data\\model_save.pt'
 
 if __name__ == '__main__':
-    print(device)
+    print(device, end='\n\n')
     test_all_hyperparameters = False
     test_all_intervals = False
 
