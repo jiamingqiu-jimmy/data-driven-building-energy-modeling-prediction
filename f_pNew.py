@@ -225,6 +225,7 @@ class GNNModel(torch.nn.Module):
             room_dict[room] = idx
 
         # sets matrix locations of all adjacent rooms
+        # horizontal rooms
         matrix[room_dict['403'],room_dict['405']] = 1
         matrix[room_dict['461'],room_dict['462']] = 1
         matrix[room_dict['461'],room_dict['463']] = 1
@@ -250,6 +251,45 @@ class GNNModel(torch.nn.Module):
         matrix[room_dict['114'],room_dict['120']] = 1
         matrix[room_dict['120'],room_dict['121']] = 1
         matrix[room_dict['121'],room_dict['122']] = 1
+        # Vertical rooms
+        matrix[room_dict['403'],room_dict['304']] = 1
+        matrix[room_dict['405'],room_dict['304']] = 1
+        matrix[room_dict['402'],room_dict['302']] = 1
+        matrix[room_dict['484'],room_dict['386']] = 1
+        matrix[room_dict['417'],room_dict['317']] = 1
+        matrix[room_dict['450'],room_dict['350']] = 1
+        matrix[room_dict['448'],room_dict['348']] = 1
+        matrix[room_dict['445'],room_dict['345']] = 1
+        matrix[room_dict['423'],room_dict['323']] = 1
+        matrix[room_dict['462'],room_dict['362']] = 1
+        matrix[room_dict['463'],room_dict['363']] = 1
+        matrix[room_dict['461'],room_dict['361']] = 1
+        matrix[room_dict['436'],room_dict['336']] = 1
+        matrix[room_dict['428'],room_dict['328']] = 1
+        matrix[room_dict['429'],room_dict['329']] = 1
+        matrix[room_dict['308'],room_dict['208']] = 1
+        matrix[room_dict['380'],room_dict['280']] = 1
+        matrix[room_dict['317'],room_dict['217']] = 1
+        matrix[room_dict['368'],room_dict['268']] = 1
+        matrix[room_dict['323'],room_dict['223']] = 1
+        matrix[room_dict['350'],room_dict['249']] = 1
+        matrix[room_dict['348'],room_dict['248']] = 1
+        matrix[room_dict['345'],room_dict['245']] = 1
+        matrix[room_dict['340'],room_dict['254']] = 1
+        matrix[room_dict['340'],room_dict['240']] = 1
+        matrix[room_dict['362'],room_dict['261']] = 1
+        matrix[room_dict['363'],room_dict['261']] = 1
+        matrix[room_dict['361'],room_dict['261']] = 1
+        matrix[room_dict['329'],room_dict['229']] = 1
+        matrix[room_dict['208'],room_dict['105']] = 1
+        matrix[room_dict['208'],room_dict['105']] = 1
+        matrix[room_dict['248'],room_dict['122']] = 1
+        matrix[room_dict['247'],room_dict['122']] = 1
+        matrix[room_dict['245'],room_dict['122']] = 1
+        matrix[room_dict['245'],room_dict['121']] = 1
+        matrix[room_dict['240'],room_dict['121']] = 1
+        matrix[room_dict['240'],room_dict['120']] = 1
+        matrix[room_dict['229'],room_dict['120']] = 1
 
         # transpose matrix matrix should be symmetric
         matrix += np.transpose(matrix) + 1
