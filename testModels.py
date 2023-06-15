@@ -26,28 +26,36 @@ def check_final_temp(temp, data):
 
 
 if __name__ == '__main__':
-    interval=60
     rooms = np.load(f'preprocessing_output\\merged_rooms_list.npy')
     model = f_pNew.Model(80, [19, 20, 20, 1], rooms)
-    # time_interval = 60
-    model.load_state_dict(torch.load(f'runtime data\\model{interval}_save.pt'))
-    model = model.to(torch.device('cpu'))
-    data = torch.from_numpy(np.load(f'preprocessing_output/{interval}T/features_rooms_testing_{interval}T.npy').astype(np.float32))
-    final_temp = simulate_all(model, torch.clone(data))
-    loss = check_final_temp(final_temp, torch.clone(data))
+    results = np.zeros((3,3))
+    results_loss = np.zeros((3,3))
+    for idx_m, interval_model in enumerate([30,60,120]):
+        for idx_d, interval_data in enumerate([30,60,120]):
+            model.load_state_dict(torch.load(f'runtime data\\model{interval_model}_save.pt'))
+            model = model.to(torch.device('cpu'))
+            data = torch.from_numpy(np.load(f'preprocessing_output/{interval_data}T/features_rooms_testing_{interval_data}T.npy').astype(np.float32))
+            final_temp = simulate_all(model, torch.clone(data))
+            loss = check_final_temp(final_temp, torch.clone(data))
 
-    final_adj = model.GNN.adjacency_matrix.detach().numpy()
-    data_end = data.numpy()[:,-1,1]
-    final_temp = final_temp.numpy()
-    print(loss)
-    data_test = torch.from_numpy(np.load(f'preprocessing_output/{interval}T/features_rooms_testing_{interval}T.npy').astype(np.float32))
-    error = 0
-    for datum_idx in range(data_test.shape[0]-1):
-        start_temp = data_test[datum_idx, :, 1]
-        features = data_test[datum_idx,:,:]
-        pred_y = simulate_single_step(model, start_temp, features)
+            final_adj = model.GNN.adjacency_matrix.detach().numpy()
+            data_end = data.numpy()[:,-1,1]
+            final_temp = final_temp.numpy()
+            # print(loss)
+            data_test = torch.from_numpy(np.load(f'preprocessing_output/{interval_data}T/features_rooms_testing_{interval_data}T.npy').astype(np.float32))
+            error = 0
+            for datum_idx in range(data_test.shape[0]-1):
+                start_temp = data_test[datum_idx, :, 1]
+                features = data_test[datum_idx,:,:]
+                pred_y = simulate_single_step(model, start_temp, features)
 
-        loss_func = nn.MSELoss()
-        true_y = data_test[datum_idx+1, :, 1]
-        error += float(loss_func(pred_y, true_y).detach())
-    print(error)
+                loss_func = nn.MSELoss()
+                true_y = data_test[datum_idx+1, :, 1]
+                error += float(loss_func(pred_y, true_y).detach())
+            # print(error)
+            results[idx_m, idx_d] = error
+            results_loss[idx_m, idx_d] = loss
+
+    pass
+    print(results)
+

@@ -1,19 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# Graph neural network
-# Inputs:
-# Nodes of all the rooms
-# Outputs:
-# 
-# Important rules:
-# temp = Temperature
-# tmp = Temporary
-# w = weight
-# 
-
-# In[5]:
-
 
 import torch
 import torch.nn as nn
@@ -25,11 +9,6 @@ import os
 import pickle
 
 
-# from torch_geometric.nn import GCNConv
-# from torch_geometric.datasets import Planetoid
-
-
-# In[6]:
 
 
 class Model(nn.Module):
@@ -388,7 +367,7 @@ outfile = f'runtime data\\model_save.pt'
 if __name__ == '__main__':
     print(device, end='\n\n')
     test_all_hyperparameters = False
-    test_all_intervals = False
+    test_all_intervals = True
 
     # if wanna compare all hyperparameters
     if test_all_hyperparameters:

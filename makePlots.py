@@ -30,15 +30,17 @@ def plot_Data_hyperparameters(records):
     plt.savefig('plots\\loss_graph_hyperparameters.png')
 
 def plot_Data_intervals(records):
-    plt.figure(figsize=(13, 10))
+    plt.figure(figsize=(11, 8))
     plt.ion()
 
     intervals = [30,60,120]
     correction = [4,2,1]
-    offsets = [(-15,10),(-5,40),(-18,10)]
+    offsets = [(-15,10),(-1,10),(-18,10)]
     for idx_interval in range(3):
         # print(record_idx)
-        record = records[f'arr_{idx_interval}']/correction[idx_interval]
+        record = records[f'arr_{idx_interval}']#/correction[idx_interval]
+        if idx_interval == 1:
+            record = record[0:-2]
         plt.plot(range(len(record)), record, label='{}'.format(intervals[idx_interval]))
         plt.yscale('log')
         plt.xlabel('epochs')
@@ -55,6 +57,7 @@ def plot_Data_intervals(records):
 
 if __name__ == '__main__':
     records_hyperparemeters = np.load('runtime data\\all_hyperparameters_loss_records.npz')
-    # plot_Data_hyperparameters(records_hyperparemeters)
+    plot_Data_hyperparameters(records_hyperparemeters)
     records_intervals = np.load('runtime data\\all_intervals_loss_records.npz')
     plot_Data_intervals(records_intervals)
+    pass

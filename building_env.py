@@ -12,7 +12,7 @@ from gym.envs.registration import register
 class buildingEnv(gym.Env):
 
     def __init__(self, dims, interval, goal, data):
-        bound = 1e4#np.inf
+        bound = 1e8#np.inf
         self.observation_space = gym.spaces.Box(low=-bound, high=bound, shape=(dims[0], dims[1]))
         self.action_space = gym.spaces.Box(low=-bound, high=bound, shape=(dims[0]* dims[2],))
 

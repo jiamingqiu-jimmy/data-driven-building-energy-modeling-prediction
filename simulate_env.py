@@ -78,8 +78,23 @@ def create_model(temp_goal, interval, data, dims, model_file):
     return model
 
 def test_model(temp_goal, interval, data, dims, model_file):
+    temp_goal = temp_goal
     env = gym.make('BuildingEnv-v0', dims = dims, interval=interval, goal = temp_goal, data= data)
     model = PPO.load(model_file, env=env)
+    data_point = data[0,:,0:10]
+    input_feat = np.reshape(model.predict(data_point)[0], (80,9))
+
+
+    rooms = np.load(f'preprocessing_output\\merged_rooms_list.npy')
+    building_model = f_pNew.Model(80, [19, 20, 20, 1], rooms)
+    building_model.load_state_dict(torch.load(f'runtime data\\model{interval}_save.pt'))
+    building_model = building_model.to(torch.device('cpu'))
+
+    data_complete = torch.from_numpy(np.concatenate((data_point, input_feat), axis=1))
+    data_temp = data_complete[:,1]
+    pred_temp = building_model.predict(data_temp,data_complete).detach().numpy()
+    error = np.linalg.norm(pred_temp-temp_goal)
+    pass
 
 if __name__ == '__main__':
     temp_goal = 70
@@ -92,11 +107,13 @@ if __name__ == '__main__':
     model_file = 'simulation_data\\trash'
 
     start = time.time()
-    model = create_model(temp_goal, interval, data_train, dims, model_file)
-    del model
-    print('total time taken: ', time.time()-start)
+    # model = create_model(temp_goal, interval, data_train, dims, model_file)
+    # del model
+    # print('total time taken: ', time.time()-start)
 
-    # data_test = np.load(f'preprocessing_output/{interval}T/features_rooms_testing_{interval}T.npy').astype(np.float32)
-    # test_model(temp_goal, interval, data_test, dims, model_file)
+    data_test = np.load(f'preprocessing_output/{interval}T/features_rooms_testing_{interval}T.npy').astype(np.float32)
+    data_test = data_train
+    model_file = 'simulation_data\\model_single_datum.zip'
+    test_model(temp_goal, interval, data_test, dims, model_file)
     pass
 

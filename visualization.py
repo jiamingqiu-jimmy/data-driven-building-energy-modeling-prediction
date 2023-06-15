@@ -45,18 +45,7 @@ def visualizeData(data, fileout, visual_room_order):
         if time % 20 == 0:
             print('time compeleted: {}'.format(time))
 
-    # def white_to_transparency(img):
-    #     x = np.asarray(img.convert('RGBA')).copy()
-    #
-    #     x[:, :, 3] = (255 * (x[:, :, :3] != 255).any(axis=2)).astype(np.uint8)
-    #
-    #     return Image.fromarray(x)
-    #
-    # completeIm = white_to_transparency(Image.open('D:\\Documents\\School\\ECE 228\\Project\\images\\imageComplete.png'))
-    #
-    # for image_idx in range(len(frames)):
-    #     frames[image_idx].paste(completeIm, (0,0), completeIm)
-    frames[1].save(fileout, save_all=True, append_images=frames[2:], optimize=True, duration=5, loop=0)
+    frames[1].save(fileout, save_all=True, append_images=frames[2:], optimize=True, duration=3, loop=0)
 
 
 
@@ -68,8 +57,7 @@ def reorder_data(data, data_room_order, visual_room_order):
         dataNew[:,room_idx] = data[:,data_idx]
     return dataNew
 
-data = np.load('preprocessing_output\\30T\\temps_training_30T.npy')[0:336,:]
-# data[783][37] = 73.61798
+data = np.load('preprocessing_output\\30T\\temps_training_30T.npy')[240:336,:]
 data_room_order = np.load('preprocessing_output\\merged_rooms_list.npy')
 
 visual_room_order = ['403', '405', '409', '413', '415', '402', '417', '484', '470', '420', '469', '423', '450', '462', '463', '461', '448', '445', '432', '428', '429', '436',
